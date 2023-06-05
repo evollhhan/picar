@@ -21,8 +21,8 @@ export interface ScriptLifecycle {
   onLoaded?(): void | Promise<void>
 
   /**
-   * Called on every frame, usually used to execute game logic.
-   * 帧更新，通常用于执行游戏逻辑
+   * Called on every frame, usually used to execute game logic. Note that you should use onUpdateEntity to update the entity instead of this method.
+   * 帧更新，通常用于执行游戏逻辑。在系统中，请使用onUpdateEntity方法而不是这个。
    * @param deltaTime 更新时间
    */
   onUpdate?(deltaTime: number): void;

@@ -1,26 +1,27 @@
-import { Script } from './script'
+import type { ComponentInterface } from './component'
 import { PIKA_EVENT } from './const'
+import { Script } from './script'
 
 /**
- * Entity is a container for components.
- * 实体的组件容器，一个或多个组件可以构成一个实体
+ * Entity is a container for components. 
+ * 实体是组件的容器，一个或多个组件构成了一个实体。实体本质上只是一个概念，内部组成主要是组件。
+ * 实现上内置了id，用于标识实体。还有一些组件的内置的方法，用于管理组件。
  */
-export class Entity<Components = any> {
+export class BaseEntity {
   /**
-   * The number of entities created.
+   * Next id of the entity.
    */
-  static IDs: number = 0
+  static nextId = 0
 
   /**
    * The id of the entity.
+   * 实体id
    */
-  id: number = ++Entity.IDs
+  readonly _id = ++BaseEntity.nextId
+}
 
-  /**
-   * A observerable map of components. Initialize in entity system `create` method.
-   * This property cannot be overwritten or deleted.
-   */
-  components!: Components
+export type Entity<ComponentTypes = Record<string, any>> = BaseEntity & ComponentTypes & {
+  component: ComponentInterface
 }
 
 /**
@@ -39,15 +40,7 @@ export class EntitySystem extends Script {
    * 创建实体
    */
   create () {
-    const entity = new Entity()
-
-    Object.defineProperty(entity, 'components', {
-      value: this.app.components.create(),
-      writable: false,
-      configurable: false
-    })
-
-    return entity
+    return new BaseEntity() as Entity
   }
 
   /**

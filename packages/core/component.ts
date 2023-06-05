@@ -1,3 +1,5 @@
+import type { Entity } from './entity';
+import { ArcheType } from './archetype';
 import { PIKA_EVENT } from './const';
 import { Script } from './script';
 import { Signature } from './signature'
@@ -14,28 +16,56 @@ export interface ComponentPrototype {
   constructor?: any;
 }
 
-export type ComponentMap<Type = Record<string, any>> = {
+export class ComponentInterface {
   /**
-   * The signature of the component map.
-   * 组件签名
+   * A pointer to the component manager.
    */
-  _signature: number
+  scope: Component
+
   /**
-   * Add a component to the map.
-   * @param name The name of the component.
+   * Indicate which entity the component belongs to.
+   */
+  belong: Entity
+
+  /**
+   * The signature of the entity.
+   */
+  signature: number = 0
+
+  /**
+   * The names of the component.
+   */
+  names: string[] = []
+
+  constructor (scope: Component, entity: Entity) {
+    this.scope = scope
+    this.belong = entity
+  }
+
+  /**
+   * Add a component to the entity.
+   * @param componentName The name of the component.
    * @param initValue The initial value of the component.
    */
-  add: (name: string, initValue: any) => void
+  add (componentName: string, initValue: any) {
+    this.scope.add(this.belong, componentName, initValue)
+  }
+
   /**
-   * Remove a component from the map.
-   * @param name The name of the component.
+   * Remove a component from the entity.
+   * @param componentName The name of the component.
    */
-  remove: (name: string) => void
+  remove (componentName: string) {
+    this.scope.remove(this.belong, componentName)
+  }
+
   /**
-   * Remove all components of the entity.
+   * Remove all components.
    */
-  destroy: () => void
-} & Type
+  destroy () {
+    this.scope.destroy(this.belong)
+  }
+}
 
 /**
  * Component Manager.
@@ -43,16 +73,22 @@ export type ComponentMap<Type = Record<string, any>> = {
  */
 export class Component extends Script {
   /**
-   * Registered components.
-   * 组件注册表
-   */
-  protected map: Record<string, ComponentPrototype> = {}
-
-  /**
    * Signature module.
    * 签名模块
    */
   protected signature = new Signature()
+
+  /**
+   * Registered components.
+   * 组件注册表
+   */
+  protected components = new Map<string, ComponentPrototype>()
+
+  /**
+   * Archetypes.
+   * 原型列表
+   */
+  protected archetypes = new Map<number, ArcheType>()
 
   /**
    * Register a component.
@@ -65,14 +101,14 @@ export class Component extends Script {
       throw new Error('[Pika] The name of the component is required.')
     }
 
-    if (name in this.map) {
+    if (name in this.components) {
       throw new Error(`[Pika] The component "${name}" has been registered.`)
     }
 
-    this.map[name] = {
+    this.components.set(name, {
       id: this.signature.register(),
       constructor
-    }
+    })
   }
 
   /**
@@ -81,101 +117,76 @@ export class Component extends Script {
    * @param name
    */
   getPrototype (name: string) {
-    return this.map[name]
+    return this.components.get(name)
   }
 
   /**
-   * Create a observerable component map.
-   * 创建组件对象
-   * @param sys entity system
+   * Provide component interface to the entity.
+   * 为实体提供组件接口
    */
-  create () {
-    const components = { _signature: 0 } as ComponentMap
-
-    return new Proxy(components, {
-      set: (target, prop: string, value) => {
-        // Ignore the signature and add/remove methods.
-        if (prop === '_signature' || prop === 'add' || prop === 'remove' || prop === 'destroy') {
-          return false
-        }
-
-        if (prop in target) {
-          target[prop] = value
-        } else {
-          this.add(target, prop, value)
-        }
-        return true
-      },
-      get: (target, prop: string) => {
-        if (prop === 'add') {
-          return (name: string, initValue: any) => this.add(target, name, initValue)
-        }
-
-        if (prop === 'remove') {
-          return (name: string) => this.remove(target, name)
-        }
-
-        if (prop === 'destroy') {
-          return () => this.destroy(target)
-        }
-
-        return target[prop]
-      }
-    })
+  observe (entity: Entity) {
+    const instance = new ComponentInterface(this, entity)
+    return instance
   }
 
   /**
-   * Add component to the component map.
+   * Add component to the entity.
    * 添加组件
-   * @param components The component map.
+   * @param entity The entity to add component.
    * @param componentName The name of the component.
    * @param initValue The initial value of the component.
    */
-  add (components: ComponentMap, componentName: string, initValue: any) {
-    // Component has already been added.
-    if (componentName in components) {
-      console.warn(`[Pika] Component ${componentName} has already been added to`, components)
-      return
+  add (entity: Entity, componentName: string, initValue: any) {
+    // Currently, only one component of the same type can be added to the entity.
+    if (componentName in entity) {
+      console.warn(`[Pika] Component ${componentName} has already been added to`, entity)
     }
 
     // Get reigstered component info.
     const proto = this.getPrototype(componentName)
 
-    if (!proto) {
-      components[componentName] = initValue
-      return
-    }
+    // Update component names
+    entity.component.names.push(componentName)
 
     // Check if the component has indvidual constructor.
-    const { constructor } = proto
-
-    components[componentName] = constructor ? new constructor(initValue) : initValue
+    entity[componentName] = (proto && proto.constructor) ? new proto.constructor(initValue) : initValue
 
     // Update signature.
-    components._signature = this.getSignatureByComponentNames(Object.keys(components))
+    entity.component.signature = this.getSignatureByComponentNames(entity.component.names)
+
+    // Update archetype.
+    Array.from(this.archetypes.values()).forEach((archetype) => archetype.add(entity))
 
     // Emit add event.
-    this.emit(PIKA_EVENT.ADD_COMPONENT, components)
+    this.emit(PIKA_EVENT.ADD_COMPONENT, entity, componentName)
   }
 
   /**
    * Remove component from the component map.
    * 移除组件
-   * @param components The component map.
+   * @param entity The entity to remove component.
    * @param componentName The name of the component.
    */
-  remove (components: ComponentMap, componentName: string) {
-    if (!(componentName in components)) {
-      return
+  remove (entity: Entity, componentName: string) {
+    if (!(componentName in entity)) {
+      return false
     }
 
-    delete components[componentName]
+    delete entity[componentName]
+
+    // Update component names
+    entity.component.names = entity.component.names.filter((name) => name !== componentName)
 
     // Update signature.
-    components._signature = this.getSignatureByComponentNames(Object.keys(components))
+    entity.component.signature = this.getSignatureByComponentNames(entity.component.names)
+
+    // Update archetype.
+    Array.from(this.archetypes.values()).forEach((archetype) => archetype.remove(entity))
 
     // Emit remove event.
-    this.emit(PIKA_EVENT.REMOVE_COMPONENT, components)
+    this.emit(PIKA_EVENT.REMOVE_COMPONENT, entity, componentName)
+
+    return true
   }
 
   /**
@@ -183,23 +194,53 @@ export class Component extends Script {
    * 销毁组件
    * @param components The component map.
    */
-  destroy (components: ComponentMap) {
-    Object.keys(components).forEach((name) => this.remove(components, name))
+  destroy (entity: Entity) {
+    entity.component.names.forEach((name) => this.remove(entity, name))
+  }
+
+  /**
+   * Create an archetype with related components. Component should be registered before creating archetype.
+   * @param componentNames The names of the components.
+   */
+  createArchetype (componentNames: string[]) {
+    if (!componentNames || !componentNames.length) {
+      throw new Error('[Pika] At least one component name is required to create an archetype.')
+    }
+
+    componentNames.forEach((name) => {
+      if (!(name in this.components)) {
+        throw new Error(`[Pika] Component "${name}" is not registered.`)
+      }
+    })
+
+    const signature = this.getSignatureByComponentNames(componentNames)
+    
+    // Check if the archetype with the same signature has already been created.
+    if (this.archetypes.has(signature)) {
+      return this.archetypes.get(signature)
+    }
+
+    // Create archetype.
+    const archetype = new ArcheType(signature)
+
+    this.archetypes.set(signature, archetype)
+
+    return archetype
   }
 
   /**
    * Get signature by component names.
    * 根据组件获取签名
-   * @param names The names of the components.
+   * @param componentNames The names of the components.
    */
-  getSignatureByComponentNames (names: string[]) {
-    if (!names.length) {
+  getSignatureByComponentNames (componentNames: string[]) {
+    if (!componentNames.length) {
       return 0
     }
 
     const arr = this.signature.create()
 
-    names.forEach((name) => {
+    componentNames.forEach((name) => {
       const proto = this.getPrototype(name)
       if (proto) {
         this.signature.setBitAt(arr, proto.id, '1')

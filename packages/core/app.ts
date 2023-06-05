@@ -1,8 +1,8 @@
+import { EntitySystem } from './entity'
+import { Script, ScriptLifecycle } from './script'
 import { EventBus } from './eventbus'
 import { PIKA_EVENT } from './const'
 import { Component } from './component'
-import { Script, ScriptLifecycle } from './script'
-import { EntitySystem } from './entity'
 
 /**
  * The main class of the application,
@@ -38,13 +38,13 @@ export class Pika extends EventBus {
    * Component manager.
    * 组件管理器
    */
-  readonly components = new Component()
+  readonly Component = new Component()
 
   /**
    * Entity system.
    * 实体系统
    */
-  readonly entity = new EntitySystem()
+  readonly Entity = new EntitySystem()
 
   /**
    * Registered scripts.
@@ -55,8 +55,21 @@ export class Pika extends EventBus {
 
   constructor () {
     super()
-    this.script(this.entity)
-    this.script(this.components)
+    this.script(this.Component)
+    this.script(this.Entity)
+  }
+
+  /**
+   * Create an entity.
+   */
+  entity () {
+    // create base entity
+    const entity = this.Entity.create()
+
+    // add component interface to entity
+    this.Component.observe(entity)
+
+    return entity
   }
 
   /**
@@ -68,7 +81,7 @@ export class Pika extends EventBus {
    * @param constructor The constructor of the component.
    */
   component (name: string, constructor?: any) {
-    return this.components.register(name, constructor)
+    return this.Component.register(name, constructor)
   }
 
   /**
