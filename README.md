@@ -2,6 +2,9 @@
 
 > a javascript framework for game development, design based on the ECS-like architecture.
 
+NOTE: This project is still under development, and the API may change at any time.
+注意： 开发中未完成！
+
 
 ## FAQ
 
