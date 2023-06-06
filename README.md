@@ -1,6 +1,6 @@
-# PIKA
+# PIKA - A ECS Framework
 
-> a javascript framework for game development, design based on the ECS-like architecture.
+![logo](https://i.postimg.cc/jjnp9FcY/Rectangle-9666.png)
 
 ## 介绍
 
