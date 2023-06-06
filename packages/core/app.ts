@@ -3,12 +3,27 @@ import { Script, ScriptLifecycle } from './script'
 import { EventBus } from './eventbus'
 import { PIKA_EVENT } from './const'
 import { Component } from './component'
+import { TickerOptions, Ticker } from './ticker'
+
+export interface PikaOptions extends TickerOptions {
+  /**
+   * Whether to use the built-in ticker.
+   * 是否使用内置的计时器
+   */
+  useTicker?: boolean
+}
 
 /**
  * The main class of the application,
  * controls lifecycle and registers components, services, etc.
  */
 export class Pika extends EventBus {
+  /**
+   * Event types.
+   * 事件列表
+   */
+  static EVENT = PIKA_EVENT
+
   /**
    * Get the current status of the application.
    */
@@ -50,13 +65,17 @@ export class Pika extends EventBus {
    * Registered scripts.
    * 已注册的脚本列表
    */
-  scripts: Array<Script & ScriptLifecycle> = []
+  readonly scripts: Array<Partial<Script> & ScriptLifecycle> = []
 
 
-  constructor () {
+  constructor (options: PikaOptions = {}) {
     super()
     this.script(this.Component)
     this.script(this.Entity)
+    // Add ticker if needed.
+    if (options.useTicker) {
+      this.script(new Ticker(options))
+    }
   }
 
   /**
@@ -89,13 +108,19 @@ export class Pika extends EventBus {
    * 注册脚本。脚本提供了应用的基本逻辑单元。
    * @param script
    */
-  async script (script: Script & ScriptLifecycle) {
+  async script (script: Partial<Script> & ScriptLifecycle) {
     if (!script) return
 
     if (this.state === PIKA_EVENT.INIT) {
       throw new Error('[Pika] Please register the script after the application is initialized.')
     }
 
+    // default actived
+    if (script.actived === undefined) {
+      script.actived = true
+    }
+
+    // inject app
     script.app = this
 
     // Install the script.
@@ -163,6 +188,6 @@ export class Pika extends EventBus {
   async destroy () {
     await this.stop()
     await Promise.all(this.scripts.map(script => script.onDestroy?.()))
-    this.scripts = []
+    this.scripts.splice(0, this.scripts.length)
   }
 }
