@@ -22,7 +22,7 @@ export class System<ComponentTypes = Record<string, any>> extends Script impleme
    * Create a system.
    * @param componentNames The names of the components. 关联组件名称
    */
-  constructor (componentNames: string[]) {
+  constructor (componentNames: string[] = []) {
     super()
     this.componentNames = componentNames
   }
@@ -31,7 +31,9 @@ export class System<ComponentTypes = Record<string, any>> extends Script impleme
    * Note that related components must be registered before the system is installed.
    */
   onInstalled () {
-    this.archetype = this.app.Component.createArchetype(this.componentNames)
+    if (this.componentNames.length) {
+      this.archetype = this.app.Component.createArchetype(this.componentNames)
+    }
   }
 
   /**
