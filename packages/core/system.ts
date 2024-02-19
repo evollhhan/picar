@@ -46,6 +46,7 @@ export class System<ComponentTypes = Record<string, any>> extends Script impleme
   /**
    * @param entity
    * @param deltaTime
+   * @param index
    */
   onUpdateEntity (entity: Entity<ComponentTypes>, deltaTime: number, index: number) {
     // implement this method to update the entity
