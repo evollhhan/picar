@@ -1,14 +1,14 @@
-# PIKA - A ECS Framework
+# Pika - A Javascript ECS Framework
 
-![logo](https://i.postimg.cc/jjnp9FcY/Rectangle-9666.png)
+![pika](https://github.com/evollhhan/poem/assets/7286858/44629b71-d908-4f1c-9a59-0175bd7870d7)
 
-## 介绍
+PIKA is a development framework based on the ECS concept. Its design goal is to provide a solution for interactive and game-like projects that separates data and logic, and uses a composition-based approach to build game objects.
 
-PIKA是一个基于ECS思想的开发框架，它的设计目标是为互动、游戏类项目提供一套数据与逻辑分离的解决方案，并使用组合的方式来构建游戏对象。虽然框架的设计参考了ECS的思想，但是并不是完全按照ECS的标准来实现，你可以根据项目的实际需求进行调整。
+## Quick Start
 
-## 一个简单的例子
+### Basic Usage
 
-以下代码展示了如何使用PIKA来创建一个简单的应用。这个应用会在画布中心创建一个旋转的圆圈。
+The following demo shows how to use pika to create a simple application which has a rotating circle at the center of the canvas.
 
 ```javascript
 import { Pika } from '../core'
@@ -72,12 +72,54 @@ pika.start()
 
 ```
 
-## FAQ
+### Ecs Example
 
-1. 什么时候需要用到```Component```和```System```？
+This demo shows a simple ECS usage which creates an entity that has a movement component. The movement component will update the x value of the entity every frame. When the x value is greater than 100, it will be reset to 0.
 
-答：虽然框架基于ECS架构，但是并不是所有的逻辑都需要用到```Entity```、```Component```或```System```。一些简单的项目只需要```Script```及其提供的生命周期即可。只有当你需要处理较为复杂的逻辑，譬如碰撞检测等，才需要用到ECS的相关概念。
+```typescript
+import { Pika, System } from '../core'
+import { Entity } from '../core/entity'
 
-2. 是否支持```Singleton components```（单例组件）？
+// Create Pika app.
+const pika = new Pika({ useTicker: true })
 
-答：不需要，因为单例组件建议通过全局、或公共变量的方式来实现。对于一般项目实现来说，使用这种方式更加简单，而且不会影响到ECS的实现。
+// Register movement component.
+pika.component('movement')
+
+// Define target entity component map
+interface SampleComponent {
+  movement: {
+    x: number
+  }
+}
+
+// Movment system controls the movement of the entity.
+class MovementSystem extends System {
+  constructor () {
+    super(['movement'])
+  }
+
+  onUpdateEntity(entity: Entity<SampleComponent>, deltaTime: number): void {
+    let value = entity.movement.x + 1 * deltaTime
+    if (value > 100) {
+      value = 0
+    }
+    entity.movement.x = value
+  }
+}
+
+// Game init system will create a entity that has a movement component.
+class GameInit extends System {
+  onLoad () {
+    const e = this.app.entity()
+    e.component.add('movement', { x: 0 })
+  }
+}
+
+// Add system.
+pika.script(new MovementSystem())
+pika.script(new GameInit())
+
+// Start app.
+pika.start()
+```
